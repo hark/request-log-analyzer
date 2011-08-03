@@ -220,7 +220,7 @@ module RequestLogAnalyzer
       end
 
       # register aggregators
-      options[:aggregator].each { |agg| controller.add_aggregator(agg.to_sym) }
+      options[:aggregator].each { |agg| controller.add_aggregator(agg) }
       controller.add_aggregator(:summarizer)          if options[:aggregator].empty?
       controller.add_aggregator(:echo)                if options[:debug]
       controller.add_aggregator(:database_inserter)   if options[:database] && !options[:aggregator].include?('database')
@@ -287,18 +287,18 @@ module RequestLogAnalyzer
       klass = nil
       if agg.kind_of?(String) && File.exist?(agg) && File.file?(agg)
         # load a format from a ruby file
-        require File.expand_path(file_format)
-
-        const = RequestLogAnalyzer.to_camelcase(File.basename(file_format, '.rb'))
-        if RequestLogAnalyzer::RequestLogAnalyzer::Aggregator.const_defined?(const)
-          klass = RequestLogAnalyzer::RequestLogAnalyzer::Aggregator.const_get(const)
+        require File.expand_path(agg)
+        const = RequestLogAnalyzer.to_camelcase(File.basename(agg, '.rb'))
+        if RequestLogAnalyzer::Aggregator.const_defined?(const)
+          klass = RequestLogAnalyzer::Aggregator.const_get(const)
         elsif Object.const_defined?(const)
           klass = Object.const_get(const)
         else
-          raise "Cannot load class #{const} from #{file_format}!"
+          raise "Cannot load class #{const} from #{agg}!"
         end
+      else
+        klass = RequestLogAnalyzer::Aggregator.const_get(RequestLogAnalyzer.to_camelcase(agg.to_sym))
       end
-      klass = RequestLogAnalyzer::Aggregator.const_get(RequestLogAnalyzer.to_camelcase(agg)) if agg.kind_of?(Symbol)
       @aggregators << klass.new(@source, @options)
     end
 
