@@ -284,8 +284,22 @@ module RequestLogAnalyzer
     # Adds an aggregator to the controller. The aggregator will be called for every request
     # that is parsed from the provided sources (see add_source)
     def add_aggregator(agg)
-      agg = RequestLogAnalyzer::Aggregator.const_get(RequestLogAnalyzer.to_camelcase(agg)) if agg.kind_of?(Symbol)
-      @aggregators << agg.new(@source, @options)
+      klass = nil
+      if agg.kind_of?(String) && File.exist?(agg) && File.file?(agg)
+        # load a format from a ruby file
+        require File.expand_path(file_format)
+
+        const = RequestLogAnalyzer.to_camelcase(File.basename(file_format, '.rb'))
+        if RequestLogAnalyzer::RequestLogAnalyzer::Aggregator.const_defined?(const)
+          klass = RequestLogAnalyzer::RequestLogAnalyzer::Aggregator.const_get(const)
+        elsif Object.const_defined?(const)
+          klass = Object.const_get(const)
+        else
+          raise "Cannot load class #{const} from #{file_format}!"
+        end
+      end
+      klass = RequestLogAnalyzer::Aggregator.const_get(RequestLogAnalyzer.to_camelcase(agg)) if agg.kind_of?(Symbol)
+      @aggregators << klass.new(@source, @options)
     end
 
     alias :>> :add_aggregator
